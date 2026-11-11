@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Morning Newspaper display emulator</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #ece9e2; --fg: #1d1c1a; --muted: #6b675f; --line: #cfcabf; --card: #f7f5f0;
+    --frame: #2a2724; --frame-edge: #131210; --mat: #dedbd3;
+    --accent: #d9641e; --ok: #2f7d4f; --warn: #b3261e; --key: #f7f5f0;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #171614; --fg: #ebe7df; --muted: #9a958b; --line: #3a3733; --card: #201f1c;
+      --frame: #3a3632; --frame-edge: #0c0b0a; --mat: #2b2926; --key: #2b2926;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg); color: var(--fg);
+    font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+    display: flex; gap: 20px; padding: 16px; justify-content: center; align-items: stretch;
+  }
+  body.embed { padding: 8px; background: transparent; }
+  .device { display: flex; flex-direction: column; align-items: center; gap: 10px; min-width: 0; height: 100%; }
+  /* The panel in a picture frame. The canvas is 1200 x 1600; CSS scales it down. */
+  .frame {
+    flex: 1 1 auto; min-height: 0; aspect-ratio: 1280 / 1700; max-width: 100%;
+    background: var(--frame); border: 2px solid var(--frame-edge); border-radius: 10px;
+    padding: 2.6%; box-shadow: 0 10px 30px rgb(0 0 0 / .28), inset 0 0 0 1px rgb(255 255 255 / .06);
+    display: flex;
+  }
+  .frame canvas {
+    width: 100%; height: 100%; display: block; background: #a1a4a5;
+    box-shadow: inset 0 0 0 1px rgb(0 0 0 / .4); image-rendering: auto;
+  }
+  .keys { display: flex; gap: 10px; }
+  .keys button {
+    font: inherit; font-weight: 600; min-width: 84px; padding: 8px 14px; cursor: pointer;
+    color: var(--fg); background: var(--key); border: 1px solid var(--line); border-bottom-width: 3px; border-radius: 8px;
+  }
+  .keys button:active { transform: translateY(1px); border-bottom-width: 2px; }
+  .keys button:focus-visible, select:focus-visible, .side button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .side { flex: 0 1 380px; min-width: 260px; display: flex; flex-direction: column; gap: 12px; height: 100%; }
+  body.embed .side, body.no-side .side { display: none; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+  h1 { font-size: 15px; margin: 0 0 2px; }
+  .muted { color: var(--muted); }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 8px; }
+  label { display: inline-flex; gap: 6px; align-items: center; }
+  select, .side button { font: inherit; color: var(--fg); background: var(--key); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; }
+  .side button { cursor: pointer; }
+  .status { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; align-items: baseline; }
+  .status dt { color: var(--muted); }
+  .status dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+  .code { font: 600 18px var(--mono); letter-spacing: .06em; }
+  .led { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--ok); margin-right: 6px; }
+  .led.busy { background: var(--accent); animation: blink .7s steps(2) infinite; }
+  .led.rest { background: var(--muted); }
+  @keyframes blink { 50% { opacity: .35; } }
+  .bar { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; margin-top: 8px; }
+  .bar i { display: block; height: 100%; width: 0; background: var(--accent); }
+  .strip { width: 100%; max-width: 520px; }
+  .strip .line { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; }
+  .violations { color: var(--warn); font-weight: 600; }
+  #log {
+    flex: 1 1 auto; min-height: 120px; margin: 0; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere;
+    font: 11.5px/1.45 var(--mono); background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px;
+  }
+  body.no-log #log { display: none; }
+  #log .warn { color: var(--accent); }
+  #log .error { color: var(--warn); font-weight: 600; }
+  #log .debug { color: var(--muted); }
+  #portal { display: none; }
+  #portal.on { display: block; }
+  #portal input { font: inherit; padding: 4px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--key); color: var(--fg); width: 100%; margin: 4px 0 8px; }
+  a { color: var(--accent); }
+  @media (max-width: 760px) {
+    body { flex-direction: column; height: auto; }
+    .device { height: auto; }
+    .frame { flex: none; width: 100%; }
+    .side { flex: none; height: auto; }
+    #log { max-height: 240px; }
+  }
+</style>
+</head>
+<body>
+  <main class="device">
+    <div class="frame"><canvas id="panel" width="1200" height="1600" aria-label="Simulated e-ink panel"></canvas></div>
+    <div class="strip" aria-live="polite">
+      <div class="line"><span><span class="led" id="led"></span><span id="panel-status">Starting</span></span><span id="violations" class="violations"></span></div>
+      <div class="bar" title="Refresh progress, then the panel's rest period"><i id="bar"></i></div>
+    </div>
+    <div class="keys">
+      <button id="btn-back" title="Left arrow key">Back</button>
+      <button id="btn-home" title="H or Home key">Home</button>
+      <button id="btn-next" title="Right arrow key">Next</button>
+    </div>
+  </main>
+
+  <aside class="side">
+    <div class="card">
+      <h1>Morning Newspaper display emulator</h1>
+      <div class="muted">The firmware core, compiled to WebAssembly, driving a simulated Spectra 6 panel.</div>
+      <dl class="status row">
+        <dt>Platform</dt><dd id="api"></dd>
+        <dt>State</dt><dd id="state">Starting</dd>
+        <dt id="code-label" hidden>Code</dt><dd id="code-value" hidden><span class="code" id="code"></span> <a id="pair-link" target="_blank" rel="noopener">open pairing page</a></dd>
+      </dl>
+    </div>
+    <div class="card" id="controls">
+      <div class="row" style="margin-top:0">
+        <label>Speed
+          <select id="speed">
+            <option value="1">Real time</option>
+            <option value="4">4x</option>
+            <option value="instant">Instant</option>
+          </select>
+        </label>
+        <label>Colours
+          <select id="colors">
+            <option value="panel">Panel colours</option>
+            <option value="ideal">Ideal colours</option>
+          </select>
+        </label>
+      </div>
+      <div class="row">
+        <button id="forget" title="Erase the stored token and restart, as a factory reset would">Forget pairing</button>
+        <button id="toggle-log">Hide log</button>
+      </div>
+    </div>
+    <div class="card" id="portal">
+      <strong>Wi-Fi setup stand-in</strong>
+      <div class="muted">On real hardware this is the captive portal page of the setup access point.</div>
+      <label style="display:block; margin-top:8px">Network<input id="portal-ssid" value="Home network"></label>
+      <label style="display:block">Password<input id="portal-pass" type="password" value="emulator"></label>
+      <button id="portal-save">Save and connect</button>
+    </div>
+    <pre id="log" aria-label="Log"></pre>
+  </aside>
+
+  <script src="panel-sim.js"></script>
+  <script src="newspaper.js"></script>
+  <script src="emulator.js"></script>
+</body>
+</html>

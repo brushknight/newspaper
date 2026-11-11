@@ -1,0 +1,12 @@
+build/
+build-*/
+targets/esp32/build/
+targets/esp32/sdkconfig
+targets/esp32/sdkconfig.old
+targets/esp32/managed_components/
+targets/esp32/dependencies.lock
+targets/wasm/build/
+targets/wasm/dist/
+node_modules/
+*.pyc
+.DS_Store
