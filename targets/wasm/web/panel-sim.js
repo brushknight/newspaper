@@ -11,7 +11,8 @@
 //     states and then settles; BUSY is low for all of it
 //   - DRF during a refresh is refused, and so is a DRF sooner than 180
 //     seconds after the previous refresh ended (the maker's minimum interval)
-//   - colours are the measured ink colours, not pure RGB
+//   - the white ground is a clean paper white; the five inks are the duller
+//     measured ink colours, not pure RGB
 //
 // Time can be scaled with setSpeed (1, 4, or Infinity for "instant": a
 // refresh then takes a quarter of a second and the rest period is dropped).
@@ -33,7 +34,7 @@
   // RGB per ink code. Codes 4 and 7 do not exist on this panel; a frame that
   // uses them is wrong, so they are shown in a colour that stands out.
   const PALETTES = {
-    panel: [[0x1e, 0x1d, 0x1f], [0xa1, 0xa4, 0xa5], [0xd0, 0xbe, 0x47], [0x9c, 0x48, 0x4b], [0xff, 0x00, 0xff], [0x3d, 0x3b, 0x5e], [0x3a, 0x5b, 0x46], [0xff, 0x00, 0xff]],
+    panel: [[0x1e, 0x1d, 0x1f], [0xf4, 0xf4, 0xf0], [0xd0, 0xbe, 0x47], [0x9c, 0x48, 0x4b], [0xff, 0x00, 0xff], [0x3d, 0x3b, 0x5e], [0x3a, 0x5b, 0x46], [0xff, 0x00, 0xff]],
     ideal: [[0, 0, 0], [255, 255, 255], [255, 255, 0], [255, 0, 0], [255, 0, 255], [0, 0, 255], [0, 255, 0], [255, 0, 255]],
   };
 
