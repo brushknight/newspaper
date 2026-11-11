@@ -15,6 +15,7 @@
 // rest period (about a minute of real time).
 //
 // Chrome is found through $CHROME, then the usual install locations.
+// Extra Chrome flags can be given in $CHROME_ARGS (CI uses --no-sandbox).
 'use strict';
 
 const { spawn } = require('node:child_process');
@@ -67,8 +68,9 @@ class Browser {
   static async launch() {
     const chrome = findChrome();
     if (!chrome) throw new Error('Chrome not found; set CHROME to its path');
+    const extraArgs = (process.env.CHROME_ARGS || '').split(' ').filter(Boolean); // for example --no-sandbox in CI
     const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'np-e2e-'));
-    const child = spawn(chrome, ['--headless=new', '--remote-debugging-port=0', `--user-data-dir=${profile}`, '--no-first-run', '--no-default-browser-check', '--disable-gpu', '--window-size=1320,980', 'about:blank'], { stdio: ['ignore', 'ignore', 'pipe'] });
+    const child = spawn(chrome, ['--headless=new', '--remote-debugging-port=0', `--user-data-dir=${profile}`, '--no-first-run', '--no-default-browser-check', '--disable-gpu', '--window-size=1320,980', ...extraArgs, 'about:blank'], { stdio: ['ignore', 'ignore', 'pipe'] });
     const wsUrl = await new Promise((resolve, reject) => {
       let text = '';
       const timer = setTimeout(() => reject(new Error(`Chrome did not start: ${text}`)), 20000);
@@ -214,6 +216,8 @@ async function main() {
     await page.eval(`newspaperEmulator.set({colors: 'ideal'})`);
     await page.screenshot('3-page3-ideal-colours.png');
 
+    const mockStartCount = async () => mock.pairings.size;
+    const startsBefore = mock.pairings.size + 1; // the 401 below causes one more
     mock.devices.clear(); // removed in the cloud: the next call answers 401
     await page.eval(`newspaperEmulator.press('home')`);
     await page.waitFor(`newspaperEmulator.state.state === 'pairing' && newspaperEmulator.state.screen === 'pair'`, 'back to pairing after 401', 30000);
@@ -222,6 +226,19 @@ async function main() {
     check((await page.eval('newspaperEmulator.panel.violations')) === 0, 'panel simulator saw no rule violations');
     const errors = browser.console.filter((l) => /EXCEPTION|\[error\]/.test(l));
     check(errors.length === 0, `no errors in the page console${errors.length ? `: ${errors[0]}` : ''}`);
+
+    console.log('Wi-Fi provisioning stand-in, embedded layout');
+    const p3 = await browser.open(`${base}/emulator/?api=self&speed=instant&device=e2e-wifi&reset=1&wifi=0`);
+    await p3.waitFor(`window.newspaperEmulator && newspaperEmulator.state.state === 'provisioning' && newspaperEmulator.state.screen === 'prov'`, 'provisioning screen drawn', 30000);
+    check((await mockStartCount()) === startsBefore, 'no pairing request is made before Wi-Fi is set up');
+    await p3.screenshot('7-provisioning.png');
+    await p3.eval(`document.getElementById('portal-save').click()`);
+    await p3.waitFor(`newspaperEmulator.state.state === 'pairing' && newspaperEmulator.state.screen === 'pair'`, 'pairing after Wi-Fi setup', 30000);
+    check(true, 'after the setup page is submitted the display moves on to pairing');
+    const p4 = await browser.open(`${base}/emulator/?api=self&speed=instant&device=e2e-embed&reset=1&embed=1`);
+    await p4.waitFor(`window.newspaperEmulator && newspaperEmulator.state.screen === 'pair'`, 'embedded emulator pairing screen', 30000);
+    check((await p4.eval(`getComputedStyle(document.querySelector('.side')).display`)) === 'none', 'embed=1 hides everything but the panel and its buttons');
+    await p4.screenshot('8-embed.png');
 
     if (slow) {
       console.log('4x panel speed (refresh 3 to 5 s, rest period 45 s)');

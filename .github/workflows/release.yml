@@ -1,0 +1,92 @@
+name: Release
+
+# Runs when a GitHub release is published. Release tags are date based:
+# YYYY.MM.DD.N, for example 2026.11.11.1 (N counts releases on that day).
+# The job attaches the firmware and the emulator site to the release and
+# publishes the emulator to GitHub Pages.
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.pages.outputs.page_url }}
+    env:
+      TAG: ${{ github.event.release.tag_name }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the tag format
+        run: |
+          if ! [[ "$TAG" =~ ^[0-9]{4}\.[0-9]{2}\.[0-9]{2}\.[0-9]+$ ]]; then
+            echo "Release tag '$TAG' is not of the form YYYY.MM.DD.N" >&2
+            exit 1
+          fi
+          # The tag becomes the firmware version reported to the platform.
+          echo "$TAG" > VERSION
+
+      - name: Host tests
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+          cmake --build build --parallel
+          ctest --test-dir build --output-on-failure
+
+      - name: Build the firmware
+        uses: espressif/esp-idf-ci-action@v1
+        with:
+          esp_idf_version: v5.5.2
+          target: esp32s3
+          path: targets/esp32
+          command: idf.py build && idf.py merge-bin
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: mymindstorm/setup-emsdk@v14
+      - name: Build the emulator
+        run: ./targets/wasm/build.sh
+
+      - name: Collect release files
+        run: |
+          set -euo pipefail
+          out=release-files
+          parts="newspaper-display-$TAG-esp32s3-parts"
+          mkdir -p "$out" "$parts"
+          b=targets/esp32/build
+          cp "$b/merged-binary.bin" "$out/newspaper-display-$TAG-esp32s3-merged.bin"
+          cp "$b/bootloader/bootloader.bin" "$parts/bootloader.bin"
+          cp "$b/partition_table/partition-table.bin" "$parts/partition-table.bin"
+          cp "$b/newspaper-display.bin" "$parts/newspaper-display.bin"
+          cp "$b/flash_args" "$parts/flash_args"
+          cp docs/FLASHING.md "$parts/FLASHING.md"
+          cp docs/FLASHING.md "$out/FLASHING.md"
+          zip -r "$out/$parts.zip" "$parts"
+          (cd targets/wasm/dist && zip -r "../../../$out/newspaper-emulator-$TAG.zip" .)
+          (cd "$out" && sha256sum * > SHA256SUMS.txt)
+          ls -l "$out"
+
+      - name: Attach the files to the release
+        run: gh release upload "$TAG" release-files/* --clobber
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: targets/wasm/dist
+      - name: Publish the emulator to GitHub Pages
+        id: pages
+        uses: actions/deploy-pages@v4

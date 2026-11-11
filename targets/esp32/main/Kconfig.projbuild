@@ -1,0 +1,109 @@
+menu "Morning Newspaper display"
+
+    config NP_API_BASE_URL
+        string "Platform API base URL"
+        default "https://newspaper.brushknight.com"
+        help
+            Base URL of the Morning Newspaper platform. For local development
+            point it at the mock server, for example http://192.168.1.20:8787.
+
+    menu "Panel (EL133UF1, 13.3 inch Spectra 6)"
+
+        config NP_PIN_PANEL_SCLK
+            int "SPI clock (SCLK) GPIO"
+            default 12
+
+        config NP_PIN_PANEL_MOSI
+            int "SPI data (MOSI) GPIO"
+            default 11
+
+        config NP_PIN_PANEL_CS0
+            int "Chip select 0 GPIO (first controller, left half)"
+            default 10
+
+        config NP_PIN_PANEL_CS1
+            int "Chip select 1 GPIO (second controller, right half)"
+            default 9
+
+        config NP_PIN_PANEL_DC
+            int "Data/command (DC) GPIO"
+            default 14
+
+        config NP_PIN_PANEL_RST
+            int "Reset (RST) GPIO"
+            default 13
+
+        config NP_PIN_PANEL_BUSY
+            int "BUSY GPIO (input, low while the panel is busy)"
+            default 8
+
+        config NP_PIN_PANEL_POWER
+            int "Panel power enable GPIO (-1 if not used)"
+            default -1
+            help
+                Some carrier boards (the Waveshare HAT+ for example) have a
+                power enable line that must be high. -1 leaves it alone.
+
+        config NP_PANEL_SPI_HZ
+            int "SPI clock frequency in Hz"
+            default 10000000
+            help
+                Both reference drivers use 10 MHz. Lower it for long wires.
+
+    endmenu
+
+    menu "Buttons"
+
+        config NP_PIN_BTN_NEXT
+            int "Next button GPIO"
+            default 4
+
+        config NP_PIN_BTN_BACK
+            int "Back button GPIO"
+            default 5
+
+        config NP_PIN_BTN_HOME
+            int "Home button GPIO"
+            default 6
+
+        config NP_BTN_DEBOUNCE_MS
+            int "Debounce time in milliseconds"
+            default 30
+
+        comment "Buttons connect the pin to GND; the internal pull-up is used."
+        comment "For wake from deep sleep use RTC capable pins (GPIO 0 to 21 on the ESP32-S3)."
+
+    endmenu
+
+    menu "Power"
+
+        config NP_DEEP_SLEEP
+            bool "Deep sleep between activities"
+            default y
+            help
+                Sleep with timer and button wake while the display has nothing
+                to do. Turn it off while developing to keep the serial log.
+
+        config NP_DEEP_SLEEP_MIN_SECONDS
+            int "Shortest wait worth a deep sleep, in seconds"
+            default 20
+            depends on NP_DEEP_SLEEP
+
+    endmenu
+
+    menu "Wi-Fi"
+
+        config NP_WIFI_CONNECT_TIMEOUT_S
+            int "Seconds to wait for a Wi-Fi connection"
+            default 20
+
+        config NP_SETUP_AP_PREFIX
+            string "Name prefix of the setup access point"
+            default "Newspaper"
+            help
+                The access point is called <prefix>-XXXX, where XXXX comes
+                from the chip's MAC address.
+
+    endmenu
+
+endmenu

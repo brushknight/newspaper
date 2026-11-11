@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  host-tests:
+    name: Core and driver tests (host)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_FLAGS="-fsanitize=address,undefined"
+      - name: Build
+        run: cmake --build build --parallel
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+  mock-server:
+    name: Mock platform self test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node --test tools/mock-server/test.js
+
+  emulator:
+    name: Browser emulator (WebAssembly)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: mymindstorm/setup-emsdk@v14
+      - name: Build
+        run: ./targets/wasm/build.sh
+      - name: End to end check in headless Chrome against the mock platform
+        run: node tools/e2e/emulator-e2e.js --out e2e-screenshots
+        env:
+          CHROME_ARGS: --no-sandbox
+      - uses: actions/upload-artifact@v4
+        with:
+          name: emulator
+          path: targets/wasm/dist
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: emulator-e2e-screenshots
+          path: e2e-screenshots
+          if-no-files-found: ignore
+
+  firmware:
+    name: ESP32-S3 firmware
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build with ESP-IDF
+        uses: espressif/esp-idf-ci-action@v1
+        with:
+          esp_idf_version: v5.5.2
+          target: esp32s3
+          path: targets/esp32
+          command: idf.py build && idf.py merge-bin
+      - uses: actions/upload-artifact@v4
+        with:
+          name: firmware-esp32s3
+          path: |
+            targets/esp32/build/merged-binary.bin
+            targets/esp32/build/newspaper-display.bin
+            targets/esp32/build/bootloader/bootloader.bin
+            targets/esp32/build/partition_table/partition-table.bin
+            targets/esp32/build/flash_args

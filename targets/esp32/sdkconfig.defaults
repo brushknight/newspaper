@@ -1,0 +1,16 @@
+CONFIG_IDF_TARGET="esp32s3"
+
+# The TLS handshake and the frame download run on the main task.
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=16384
+
+# Works on every ESP32-S3 module. Raise it if your board has more flash.
+CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
+CONFIG_PARTITION_TABLE_SINGLE_APP_LARGE=y
+
+# HTTPS with the built-in root certificate bundle.
+CONFIG_ESP_HTTP_CLIENT_ENABLE_HTTPS=y
+CONFIG_MBEDTLS_CERTIFICATE_BUNDLE=y
+
+# Phones send long request headers to the captive portal.
+CONFIG_HTTPD_MAX_REQ_HDR_LEN=1024
+CONFIG_HTTPD_MAX_URI_LEN=512
