@@ -1,0 +1,33 @@
+# The Morning Newspaper display on Raspberry Pi OS. Installed by install.sh
+# as /etc/systemd/system/newspaper.service.
+[Unit]
+Description=The Morning Newspaper display
+Documentation=https://github.com/brushknight/newspaper
+# The program waits for the network itself and shows a screen while there is none.
+After=network.target time-sync.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=newspaper
+Group=newspaper
+SupplementaryGroups=spi gpio
+ExecStart=/usr/local/bin/newspaper --config /etc/newspaper/newspaper.conf
+Restart=on-failure
+RestartSec=15
+# A stop waits for a running panel refresh (up to about 30 s): it is never interrupted.
+TimeoutStopSec=120
+StateDirectory=newspaper
+StateDirectoryMode=0700
+RuntimeDirectory=newspaper
+RuntimeDirectoryMode=0700
+# Keep /run/newspaper across restarts: it holds the time of the last refresh.
+RuntimeDirectoryPreserve=yes
+UMask=0077
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

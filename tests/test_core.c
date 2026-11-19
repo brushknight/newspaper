@@ -507,6 +507,35 @@ static void test_wifi_failure(void)
     fake_free(&f);
 }
 
+/* A target that owns no Wi-Fi setup (Linux) replaces the advice lines; the screen stays the same otherwise. */
+static void test_wifi_help_text(void)
+{
+    static uint8_t plain[NP_FRAME_BYTES];
+    fake_t f;
+    fake_init(&f);
+    f.wifi_ok = false;
+    start(&f);
+    run_for(&f, 10 * 60000);
+    CHECK(strcmp(fake_get(&f, "screen"), NP_SCREEN_MSG_WIFI) == 0);
+    memcpy(plain, f.shown, NP_FRAME_BYTES);
+    fake_free(&f);
+
+    fake_init(&f);
+    f.wifi_ok = false;
+    np_hal_t hal = fake_hal(&f);
+    np_app_config_t cfg = CONFIG;
+    cfg.wifi_help[0] = "Set up Wi-Fi with Raspberry Pi Imager";
+    cfg.wifi_help[2] = "or with sudo nmtui on the Pi.";
+    np_app_init(&app, &hal, &cfg);
+    run_for(&f, 10 * 60000);
+    CHECK(strcmp(fake_get(&f, "screen"), NP_SCREEN_MSG_WIFI) == 0);
+    CHECK_INT(f.refresh_count, 1);
+    CHECK(frame_is_legal(f.shown));
+    CHECK(memcmp(plain, f.shown, NP_FRAME_BYTES) != 0);
+    CHECK_INT(f.violations, 0);
+    fake_free(&f);
+}
+
 /* ---- setup screens ---- */
 
 typedef struct {
@@ -634,6 +663,7 @@ static const struct {
     { "restart_restores", test_restart_restores },
     { "provisioning", test_provisioning },
     { "wifi_failure", test_wifi_failure },
+    { "wifi_help_text", test_wifi_help_text },
     { "setup_screens", test_setup_screens },
 };
 

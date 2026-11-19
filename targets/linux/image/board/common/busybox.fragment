@@ -1,0 +1,6 @@
+# Time sync for the image: TLS certificate checks need the right date and the Pi has no clock battery.
+CONFIG_NTPD=y
+# CONFIG_FEATURE_NTPD_SERVER is not set
+# CONFIG_FEATURE_NTPD_CONF is not set
+CONFIG_PIDOF=y
+CONFIG_START_STOP_DAEMON=y

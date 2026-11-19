@@ -1,0 +1,105 @@
+name: Raspberry Pi image
+
+# Builds the flashable Raspberry Pi image (Buildroot, targets/linux/image).
+# Long (one to two hours per board on a fresh cache), so it is not part of
+# the per-push CI: it runs by hand (Actions, "Run workflow") and from the
+# release workflow, which attaches the .img.xz and its .sha256 to the release.
+
+on:
+  workflow_dispatch:
+    inputs:
+      board:
+        description: Board
+        type: choice
+        options: [all, rpizero2w, rpizerow]
+        default: rpizero2w
+  workflow_call:
+    inputs:
+      tag:
+        description: Release tag to build and attach the images to
+        type: string
+        required: true
+      board:
+        type: string
+        default: all
+
+permissions:
+  contents: write
+
+jobs:
+  image:
+    name: Image for ${{ matrix.board }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    strategy:
+      fail-fast: false
+      matrix:
+        board: ${{ fromJSON(inputs.board == 'all' && '["rpizero2w","rpizerow"]' || format('["{0}"]', inputs.board)) }}
+    env:
+      TAG: ${{ inputs.tag }}
+      WORK: ${{ github.workspace }}/../br-work
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Make room on the runner
+        run: |
+          # A Raspberry Pi build needs about 15 GB; the runner image ships with much more than it has free.
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL /usr/local/share/boost
+          docker image prune -af >/dev/null || true
+          df -h /
+
+      - name: Install Buildroot's host tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential rsync bc cpio unzip file wget python3 perl xz-utils ccache
+
+      - name: Version
+        run: |
+          v="${TAG:-$(head -n 1 VERSION)-${GITHUB_SHA::7}}"
+          echo "NEWSPAPER_FIRMWARE_VERSION=$v" >> "$GITHUB_ENV"
+          mkdir -p "$WORK"
+
+      - name: Cache downloads
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.WORK }}/dl
+          key: br-dl-2026.02.3-${{ matrix.board }}-${{ hashFiles('targets/linux/image/configs/*') }}
+          restore-keys: |
+            br-dl-2026.02.3-${{ matrix.board }}-
+            br-dl-2026.02.3-
+
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: ~/.buildroot-ccache
+          key: br-ccache-2026.02.3-${{ matrix.board }}-${{ github.run_id }}
+          restore-keys: |
+            br-ccache-2026.02.3-${{ matrix.board }}-
+
+      - name: Build
+        env:
+          NP_CCACHE: 1
+          BR2_DL_DIR: ${{ env.WORK }}/dl
+        run: |
+          # Buildroot refuses to run with these set.
+          unset PERL_MM_OPT LD_LIBRARY_PATH
+          targets/linux/image/build.sh "${{ matrix.board }}" "$WORK/${{ matrix.board }}"
+
+      - name: Collect
+        run: |
+          mkdir -p image-files
+          cp "$WORK/${{ matrix.board }}"/images/*.img.xz "$WORK/${{ matrix.board }}"/images/*.img.xz.sha256 image-files/
+          ls -l image-files "$WORK/${{ matrix.board }}/images"
+          df -h /
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: image-${{ matrix.board }}
+          path: image-files
+          compression-level: 0
+
+      - name: Attach to the release
+        if: inputs.tag != ''
+        run: gh release upload "$TAG" image-files/* --clobber
+        env:
+          GH_TOKEN: ${{ github.token }}

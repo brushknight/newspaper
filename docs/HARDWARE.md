@@ -2,6 +2,8 @@
 
 > **UNTESTED ON HARDWARE.** This wiring comes from the Kconfig defaults and from reading the reference drivers. Nobody has connected it yet. Check every line against your board's own documentation before applying power.
 
+There are two ways to drive the panel: an ESP32-S3 wired to it (below), or a Raspberry Pi that the Inky Impression plugs onto directly ([Raspberry Pi](#raspberry-pi)). Both run the same core and panel driver.
+
 ## Parts
 
 | Part | Notes |
@@ -52,6 +54,68 @@ Holding Home while plugging the display in, for five seconds, erases Wi-Fi crede
 - GPIO 19, 20: USB.
 - GPIO 26 to 32: flash. GPIO 33 to 37 as well on modules with octal flash or PSRAM.
 - GPIO 43, 44: the serial console.
+
+## Raspberry Pi
+
+The Pimoroni Inky Impression 13.3" is a Raspberry Pi HAT: it plugs straight onto the 40 pin header, so there is nothing to wire. `targets/linux` runs the same core and panel driver as the ESP32 on Raspberry Pi OS or on the flashable image ([FLASHING.md](FLASHING.md)).
+
+| Board | Status |
+| --- | --- |
+| Raspberry Pi Zero 2 W | the main target: release binaries (armhf and arm64) and a flashable image |
+| Raspberry Pi Zero W (2017, ARMv6) | the armhf release binary is built for ARMv6 and runs on it; a second image config exists |
+| Other Raspberry Pi boards | should work with Raspberry Pi OS and the install script (the program finds the header's GPIO chip by its label, Pi 5 included); not tried |
+
+Untested on hardware, like everything here: the program has run only in no-hardware mode (see the README).
+
+### Pins on the header
+
+All numbers are BCM GPIO numbers (the line offsets on the header's GPIO chip). Each one is a setting in `/etc/newspaper/newspaper.conf` (last column), so a different HAT can be configured without a rebuild.
+
+| Signal | BCM GPIO | Header pin | Direction | Setting |
+| --- | --- | --- | --- | --- |
+| SPI data (MOSI), SPI0 | 10 | 19 | out | (spidev) |
+| SPI clock (SCLK), SPI0 | 11 | 23 | out | (spidev) |
+| Chip select 0, left half | 26 | 37 | out, active low | `pin_cs0` |
+| Chip select 1, right half | 16 | 36 | out, active low | `pin_cs1` |
+| Data/command (DC) | 22 | 15 | out | `pin_dc` |
+| Reset (RESET) | 27 | 13 | out, active low | `pin_reset` |
+| BUSY | 17 | 11 | in, pull-up, low while busy | `pin_busy` |
+| Button A: **Next** | 5 | 29 | in, pull-up, pressed = low | `button_next` |
+| Button B: **Back** | 6 | 31 | in, pull-up, pressed = low | `button_back` |
+| Button C: **Home** | 25 | 22 | in, pull-up, pressed = low | `button_home` |
+| Button D: not used | 24 | 18 | (free) | |
+
+SPI goes through `/dev/spidev0.0` (`spi_device`) in mode 0 at 10 MHz (`spi_hz`), 4096 bytes per transfer. The panel's two chip selects are plain GPIO lines that the driver moves itself; the kernel's own chip select line (GPIO 8, CE0) is not connected to the panel.
+
+Sources, read from [Pimoroni's inky library](https://github.com/pimoroni/inky) at commit `a4264856f04c`:
+
+- `inky/inky_el133uf1.py`: `RESET_PIN = 27  # PIN13`, `BUSY_PIN = 17  # PIN11`, `DC_PIN = 22  # PIN15`, `MOSI_PIN = 10`, `SCLK_PIN = 11`, `CS0_PIN = 26`, `CS1_PIN = 16`; BUSY requested with `Bias.PULL_UP`; chip selects and RESET start high, DC low; `spidev.open(0, 0)` with `max_speed_hz = 10000000`; writes in 4096 byte pieces.
+- `examples/spectra6/buttons.py`: buttons A, B, C, D on GPIO 5, 6, 16, 24 from top to bottom, with the note `SW_C = 16  # Set this value to '25' if you're using a Impression 13.3"` (on the 13.3" GPIO 16 is chip select 1). Inputs with pull-up, falling edge.
+- `README.md` and `pyproject.toml`: SPI on (`raspi-config nonint do_spi 0`) and `dtoverlay=spi0-0cs` in `/boot/firmware/config.txt` ("you may need to disable SPI's chip-select"). Pimoroni also turns on I2C (`dtoverlay=i2c1`) for the board's ID EEPROM, which this program does not read.
+- The header pin numbers are the standard Raspberry Pi 40 pin layout.
+
+Which button is Next, Back and Home is our choice: A, B and C in that order, D left free for later. Change it with the three `button_` settings.
+
+### config.txt
+
+```
+dtparam=spi=on
+dtoverlay=spi0-0cs
+```
+
+`install.sh` adds both (in an `[all]` section, marked so `uninstall.sh --purge` can remove it) and the flashable image ships with them. A reboot is needed after the first change. With `dtparam=spi=on` alone the SPI driver claims GPIO 8 and 7 as chip selects; `spi0-0cs` keeps it away from them, as Pimoroni asks.
+
+### Access without root
+
+The program runs as the user `newspaper`, a member of the groups `spi` and `gpio`. On Raspberry Pi OS the system already gives `/dev/spidev*` to `spi` and `/dev/gpiochip*` to `gpio`; `install.sh` also adds a udev rule that does the same. GPIO goes through the kernel's character device (uAPI v2, Linux 5.10 or newer), not sysfs and not libgpiod.
+
+### Starting over on the Pi
+
+Hold **Home** (button C) while the program starts (at boot, or `sudo systemctl restart newspaper`) and keep it held for five seconds: the pairing is erased. Wi-Fi belongs to the system and is not touched. From a shell, `sudo systemctl stop newspaper && sudo -u newspaper newspaper --forget --config /etc/newspaper/newspaper.conf && sudo systemctl start newspaper` does the same.
+
+### Power and limits on the Pi
+
+The Pi stays on; where the ESP32 deep-sleeps, the program simply waits. The panel rules are the same: a refresh is never interrupted (stopping the service waits for it), at least 180 seconds pass between refreshes, and the last page stays up through network trouble. The time of the last refresh is kept in `/run/newspaper`, so the 180 second rule also holds when the program is restarted.
 
 ## Frame orientation
 

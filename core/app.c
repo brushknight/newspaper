@@ -221,8 +221,14 @@ static int render_message(np_app_t *app)
         view.title = "No Wi-Fi connection";
         view.lines[0] = "The display cannot join your Wi-Fi network.";
         view.lines[1] = "It keeps trying by itself.";
-        view.lines[2] = "To set up Wi-Fi again, hold the Home button";
-        view.lines[3] = "while you plug the display in.";
+        if (app->cfg.wifi_help[0] || app->cfg.wifi_help[1] || app->cfg.wifi_help[2]) {
+            for (int i = 0; i < 3; i++) {
+                view.lines[2 + i] = app->cfg.wifi_help[i];
+            }
+        } else {
+            view.lines[2] = "To set up Wi-Fi again, hold the Home button";
+            view.lines[3] = "while you plug the display in.";
+        }
     } else if (strcmp(message_id, NP_SCREEN_MSG_SERVER) == 0) {
         view.title = "Cannot reach the newspaper";
         view.lines[0] = "Wi-Fi works, but the service does not answer.";

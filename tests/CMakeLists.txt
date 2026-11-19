@@ -25,9 +25,34 @@ set(CORE_CASES
     restart_restores
     provisioning
     wifi_failure
+    wifi_help_text
     setup_screens
 )
 foreach(case ${CORE_CASES})
     add_test(NAME core.${case} COMMAND core_tests ${case})
 endforeach()
 add_test(NAME driver.el133uf1 COMMAND driver_tests)
+
+# Portable pieces of the Linux target (no libcurl, no hardware needed).
+if(UNIX)
+    set(NP_LINUX_SRC ${CMAKE_SOURCE_DIR}/targets/linux/src)
+    add_executable(linux_tests test_linux.c
+        ${NP_LINUX_SRC}/config.c
+        ${NP_LINUX_SRC}/store.c
+        ${NP_LINUX_SRC}/png.c
+        ${NP_LINUX_SRC}/netinfo.c
+        ${NP_LINUX_SRC}/wifi_file.c
+    )
+    target_include_directories(linux_tests PRIVATE ${NP_LINUX_SRC} ${CMAKE_SOURCE_DIR}/core ${CMAKE_SOURCE_DIR}/drivers/el133uf1)
+    if(APPLE)
+        target_compile_definitions(linux_tests PRIVATE _DARWIN_C_SOURCE)
+    else()
+        target_compile_definitions(linux_tests PRIVATE _GNU_SOURCE)
+    endif()
+    if(CMAKE_C_COMPILER_ID MATCHES "Clang|GNU")
+        target_compile_options(linux_tests PRIVATE -Wall -Wextra -Wno-unused-parameter)
+    endif()
+    foreach(case config store png netinfo wifi_file)
+        add_test(NAME linux.${case} COMMAND linux_tests ${case})
+    endforeach()
+endif()

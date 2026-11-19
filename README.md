@@ -4,6 +4,7 @@
   <a href="https://github.com/brushknight/newspaper/actions/workflows/ci.yml"><img src="https://github.com/brushknight/newspaper/actions/workflows/ci.yml/badge.svg" alt="ci"></a>
   <a href="https://github.com/brushknight/newspaper/releases/latest"><img src="https://img.shields.io/github/v/release/brushknight/newspaper?label=release&color=E0661F&labelColor=1b1b18" alt="latest release"></a>
   <img src="https://img.shields.io/badge/ESP32--S3-ESP--IDF-7A776F?labelColor=1b1b18" alt="ESP32-S3 with ESP-IDF">
+  <img src="https://img.shields.io/badge/Raspberry%20Pi-Linux-7A776F?labelColor=1b1b18" alt="Raspberry Pi with Linux">
   <a href="https://brushknight.github.io/newspaper/"><img src="https://img.shields.io/badge/try-the%20emulator-E0661F?labelColor=1b1b18" alt="Try the emulator"></a>
 </p>
 
@@ -11,11 +12,11 @@
 
 **Open firmware for a wall display that shows your own daily newspaper on a six-colour e-ink panel.**
 
-The Morning Newspaper is a private daily paper that your AI assistant writes for you. This repo is the part that hangs on the wall: an ESP32-S3 driving a 13.3 inch E Ink Spectra 6 panel. The cloud sends finished pages; the display just pairs, fetches and draws. The firmware is open so that anybody can build a display and attach it to the platform at https://newspaper.brushknight.com. The same code also runs in your browser as an emulator, so you can try it before you own any hardware.
+The Morning Newspaper is a private daily paper that your AI assistant writes for you. This repo is the part that hangs on the wall: a 13.3 inch E Ink Spectra 6 panel driven by an ESP32-S3, or by a Raspberry Pi that the panel plugs onto. The cloud sends finished pages; the display just pairs, fetches and draws. The firmware is open so that anybody can build a display and attach it to the platform at https://newspaper.brushknight.com. The same code also runs in your browser as an emulator, so you can try it before you own any hardware.
 
-> **Honest status:** the panel driver is UNTESTED ON HARDWARE. The panel had not arrived when this was written. Everything else below says plainly what has been run and what has not.
+> **Honest status:** the panel driver is UNTESTED ON HARDWARE. The panel had not arrived when this was written. The Raspberry Pi program has only run without hardware, and the Raspberry Pi image has never been booted. Everything else below says plainly what has been run and what has not.
 
-- [What you need](#what-you-need)
+- [What you need](#what-you-need) (ESP32-S3 or Raspberry Pi)
 - [Quick start](#quick-start)
 - [Try it in the browser](#try-it-in-the-browser)
 - [Pairing in detail](#pairing-in-detail) · [Buttons and behaviour](#buttons-and-behaviour)
@@ -25,6 +26,10 @@ The Morning Newspaper is a private daily paper that your AI assistant writes for
 
 ## What you need
 
+There are two ways to build a display. Both run the same application and panel driver.
+
+**Option A: ESP32-S3** (low power, wire it yourself)
+
 - **The panel:** a Pimoroni Inky Impression 13.3" (E Ink Spectra 6, panel EL133UF1, 1200 x 1600, six inks). The Waveshare 13.3inch e-Paper HAT+ (E) and the Good Display GDEP133C02 carry the same panel.
 - **An ESP32-S3 board** with 4 MB of flash or more. PSRAM is not needed; frames are streamed to the panel.
 - **Three push buttons:** Next, Back and Home. The Inky Impression has buttons of its own that can serve.
@@ -33,7 +38,18 @@ The Morning Newspaper is a private daily paper that your AI assistant writes for
 
 Which board is tested? **None yet.** No board has been chosen and the firmware has never run on a chip. Every pin is a build option with a sensible default; the wiring table is in [docs/HARDWARE.md](docs/HARDWARE.md). If you wire one up, expect to debug the panel driver.
 
+**Option B: Raspberry Pi** (no wiring: the panel is a HAT)
+
+- **The panel:** the Pimoroni Inky Impression 13.3", which plugs straight onto the Pi's 40 pin header. Its buttons A, B and C are Next, Back and Home.
+- **A Raspberry Pi Zero 2 W** (the original Zero W works too, more slowly), with its header soldered on.
+- **A microSD card** of 1 GB or more, and a USB power supply for the Pi.
+- **An account** on https://newspaper.brushknight.com.
+
+The Pi stays powered all the time, so it uses more power than the sleeping ESP32 (not measured). Nothing has run on a real Pi yet; pins and sources are in [docs/HARDWARE.md](docs/HARDWARE.md#raspberry-pi).
+
 ## Quick start
+
+### Option A: ESP32-S3
 
 1. **Flash a release.** Download `newspaper-display-<version>-esp32s3-merged.bin` from the [latest release](https://github.com/brushknight/newspaper/releases/latest) and write it at address 0:
 
@@ -52,6 +68,21 @@ Which board is tested? **None yet.** No board has been chosen and the firmware h
    - ask your assistant to adopt it ("adopt display K7QF-3MXD and call it Kitchen").
 
 The front page appears as soon as the panel is allowed to refresh again, within about three minutes.
+
+### Option B: Raspberry Pi
+
+Pick one of the two:
+
+- **The image** (boots straight into the newspaper, nothing else on it). Write `newspaper-display-<version>-rpizero2w.img.xz` from the [latest release](https://github.com/brushknight/newspaper/releases/latest) to a microSD card with Raspberry Pi Imager ("Use Custom") or `dd`. Put the card back into your computer, open `newspaper-wifi.txt` on the `NEWSPAPER` drive and fill in `ssid=`, `password=` and `country=`. Put the card in the Pi and power it.
+- **Raspberry Pi OS Lite** (you keep a normal Linux system). Set Wi-Fi in Raspberry Pi Imager's OS customisation, boot, then run:
+
+  ```sh
+  curl -fsSL https://raw.githubusercontent.com/brushknight/newspaper/main/targets/linux/install.sh | sudo bash
+  ```
+
+  and reboot if it asks. It installs a systemd service that runs as its own unprivileged user.
+
+Either way the system owns Wi-Fi, so there is no setup network: once the Pi is online the panel shows the pairing code (step 3 above). Without a network it shows "No Wi-Fi connection" and what to do. All details, and how the Wi-Fi file is read, are in [docs/FLASHING.md](docs/FLASHING.md#raspberry-pi).
 
 ## Try it in the browser
 
@@ -91,7 +122,7 @@ Pairing follows the OAuth device flow in spirit ([docs/PROTOCOL.md](docs/PROTOCO
 4. **Codes expire** after about 15 minutes; the display fetches a new one and redraws. After four unused codes it stops and shows "Pairing paused"; any button starts again. This keeps an unclaimed display from refreshing its panel forever.
 5. **Removed in the web app?** The next call answers 401, the display forgets its token and returns to step 2.
 
-To start over with new Wi-Fi or a new account, hold **Home** while plugging the display in and keep it held for five seconds.
+To start over with new Wi-Fi or a new account, hold **Home** while plugging the display in and keep it held for five seconds. On the Raspberry Pi the same erases the pairing; Wi-Fi is the system's (on the image, `newspaper-wifi.txt`), and step 1 does not exist there.
 
 ## Buttons and behaviour
 
@@ -100,7 +131,7 @@ To start over with new Wi-Fi or a new account, hold **Home** while plugging the 
 - Pages turn by themselves if the platform sets a page interval. The display asks the platform for news every check interval (30 minutes by default) and redraws only when the issue's version changed. A new day's issue starts on its front page.
 - A refresh is never interrupted, and never starts sooner than 180 seconds after the last one ended.
 - Network trouble never wipes the newspaper: the last page stays up and the display retries quietly. Error screens appear only during setup.
-- Between activities the ESP32 sleeps deeply and wakes on a timer or a button.
+- Between activities the ESP32 sleeps deeply and wakes on a timer or a button. The Raspberry Pi stays on and simply waits.
 
 ## Build from source
 
@@ -133,6 +164,15 @@ idf.py build
 idf.py -p /dev/tty.usbmodemXXXX flash monitor
 ```
 
+**Linux program** (Raspberry Pi, or any Linux or macOS machine in no-hardware mode; CMake, a C compiler and libcurl):
+
+```sh
+cmake -S targets/linux -B build-linux && cmake --build build-linux
+./build-linux/newspaper --help
+```
+
+On Linux this includes the SPI and GPIO code; on macOS only no-hardware mode is built. The static Raspberry Pi release binaries come from `targets/linux/build-static.sh` in an Alpine container (`linux/arm/v6` and `linux/arm64`, see the file). The flashable image is built with Buildroot: `targets/linux/image/build.sh rpizero2w ../newspaper-image/rpizero2w` (see [docs/FLASHING.md](docs/FLASHING.md#raspberry-pi-building-the-image-yourself)).
+
 ## Run against the mock platform
 
 `tools/mock-server` is a small stand-in for the platform (Node, no dependencies). It implements the protocol and serves made-up test pattern pages with page numbers and all six inks.
@@ -153,6 +193,16 @@ All options and helper endpoints are listed at the top of [tools/mock-server/ser
 
 The whole loop can be checked without a person: `node tools/e2e/emulator-e2e.js` starts the mock, opens the emulator in headless Chrome, pairs, and compares what the simulated panel shows with the frames the mock sent.
 
+The Linux program has a **no-hardware mode** that runs the real panel driver on a simulated bus and writes every refresh to `frame-NNNN.png` and `frame-NNNN.el133uf1` (plus `latest.png`) instead of ink. Keys n, b and h followed by Enter on its standard input are Next, Back and Home:
+
+```sh
+node tools/mock-server/server.js &
+./build-linux/newspaper --no-hardware --api http://127.0.0.1:8787 --data-dir /tmp/np --sim-rest-ms 5000
+node tools/mock-server/adopt.js                      # in another terminal; then look at /tmp/np/frames/latest.png
+```
+
+`--sim-rest-ms` shortens the panel's 180 second rest; only no-hardware mode accepts it. `node tools/e2e/linux-e2e.js --bin build-linux/newspaper` runs this loop as a check (pairing, adoption with `adopt.js`, page 1 and page 2 byte for byte, the token file's mode, a clean stop and restart); `--real-rest` keeps the 180 seconds.
+
 To run a local emulator build against the real platform, serve `targets/wasm/dist` from any static host and open it with `?api=https://newspaper.brushknight.com`.
 
 ## How it works
@@ -168,6 +218,9 @@ flowchart TB
   subgraph esp ["targets/esp32"]
     esphal["esp_http_client, NVS, GPIO, SPI, SoftAP portal, deep sleep"]
   end
+  subgraph linux ["targets/linux"]
+    linuxhal["libcurl, files, GPIO character device, spidev"]
+  end
   subgraph wasm ["targets/wasm"]
     webhal["fetch, localStorage, page buttons"]
     sim["panel simulator"]
@@ -179,7 +232,9 @@ flowchart TB
   screen --> hal
   hal --> esphal
   hal --> webhal
+  hal --> linuxhal
   esphal --> driver
+  linuxhal --> driver
   webhal --> driver
   driver -- "SPI, two chip selects, BUSY" --> panel
   driver -- "the same bytes" --> sim
@@ -194,6 +249,8 @@ flowchart TB
 core/                  state machine, setup screens, fonts, JSON reader
 drivers/el133uf1/      panel driver (UNTESTED ON HARDWARE)
 targets/esp32/         ESP-IDF project
+targets/linux/         Linux program for the Raspberry Pi, install.sh, systemd unit
+targets/linux/image/   Buildroot external tree for the flashable Raspberry Pi image
 targets/wasm/          emulator build and web page
 tests/                 host unit tests (CMake + ctest)
 tools/mock-server/     mock platform        tools/e2e/   headless browser check
@@ -210,31 +267,39 @@ docs/                  PROTOCOL.md, HARDWARE.md, FLASHING.md
 
 Tested:
 
-- **Core logic, on the host** (15 cases in `tests/test_core.c`): the pairing flow with poll interval, expiry and the pause after four unused codes; re-pairing on 401; a version change redraws and an unchanged one does not; button navigation with wrap, and presses during a refresh being ignored; the minimum refresh interval under page turns that come too fast; the page timer; frames streamed in odd chunk sizes landing in the right half at the right offset; 503 with Retry-After, truncated frames and network loss; restoring after a deep sleep restart; provisioning; Wi-Fi failure; setup screens being valid `el133uf1` frames.
+- **Core logic, on the host** (16 cases in `tests/test_core.c`): the pairing flow with poll interval, expiry and the pause after four unused codes; re-pairing on 401; a version change redraws and an unchanged one does not; button navigation with wrap, and presses during a refresh being ignored; the minimum refresh interval under page turns that come too fast; the page timer; frames streamed in odd chunk sizes landing in the right half at the right offset; 503 with Retry-After, truncated frames and network loss; restoring after a deep sleep restart; provisioning; Wi-Fi failure; setup screens being valid `el133uf1` frames; the Linux wording on the "No Wi-Fi" screen.
 - **Driver logic, on the host** (`tests/test_driver.c`): which bytes go to which chip select, command order, refusal of misuse. This checks the code against itself, not against a panel.
 - **The whole device in a browser, against the mock platform** (`tools/e2e/emulator-e2e.js`): pairing, pages that match the mock's frames pixel for pixel through the driver and the simulator, navigation, re-pairing after 401, the provisioning stand-in, the refresh duration and the rest period.
 - **The ESP32-S3 firmware compiles and links** with ESP-IDF v5.5.2.
+- **The Linux program in no-hardware mode, against the mock platform** (`tools/e2e/linux-e2e.js`): built and run natively on macOS and in an arm64 Debian container (with address and undefined behaviour sanitizers), and the static ARMv6 release binary under QEMU in an Alpine container. Pairing, adoption, page 1 and 2 byte for byte through the real driver and a simulated bus, the 180 second rest (one run with the real 180 s), the token file's mode 0600, a clean stop on SIGTERM, and no redraw after a restart.
+- **The portable Linux pieces, on the host** (`tests/test_linux.c`): config parsing, the token file, the PNG writer, the `/proc` network parsers, `newspaper-wifi.txt` parsing and the WPA key derivation (against the IEEE 802.11i test vector).
+- **The static Raspberry Pi binaries build** for armhf (checked to be ARMv6, `Tag_CPU_arch: v6KZ`) and arm64. The GPIO uAPI declarations the program carries for old kernel headers were compared with the kernel's own header on both architectures.
+- **The Buildroot external tree configures:** `make newspaper_rpizero2w_defconfig` and `newspaper_rpizerow_defconfig` with Buildroot 2026.02.3 keep every line of both defconfigs. Scripts pass shellcheck.
 
 Not tested:
 
 - **Anything on real hardware.** The firmware has never run on a chip. That covers the SPI panel driver and its init sequence, BUSY handling, holding a chip select low while a frame downloads, the captive portal on real phones, NVS, button debounce and wake, and deep sleep.
+- **Anything on a real Raspberry Pi:** spidev and the GPIO lines, the buttons, `install.sh` and `uninstall.sh`, the systemd unit, and the program against a real Raspberry Pi OS.
+- **The Raspberry Pi image.** It has never been built in full (only configured) and never booted: Wi-Fi from `newspaper-wifi.txt`, the read only root, the data partition, NTP, module loading and device permissions are all unproven.
 - **The real platform.** Only the mock has been exercised from this repo, in the browser and nowhere else.
-- **The CI and release workflows.** They are written but have not run on GitHub yet.
+- **The CI and release workflows.** They are written but have not run on GitHub yet; the image workflow (`.github/workflows/image.yml`) least of all.
 - The simulator's refresh animation is an impression of a Spectra 6 refresh, not a measurement.
 
-Known gaps: no battery gauge (mains power is assumed), no over-the-air update, `quiet_hours` and `timezone` from the platform are ignored, and the Wi-Fi setup network is open.
+Known gaps: no battery gauge (mains power is assumed), no over-the-air update, `quiet_hours` and `timezone` from the platform are ignored, and the Wi-Fi setup network is open. The Raspberry Pi image has no `Newspaper-XXXX` setup network yet (Wi-Fi comes from a text file), and updating it means writing a new image.
 
 ## Releases
 
 - Release tags are date based: `YYYY.MM.DD.N`, for example `2026.11.11.1`, where N counts the releases of that day. The tag becomes the firmware version the display reports.
-- Publishing a GitHub release attaches the firmware (one merged flashable `.bin`, a zip with the separate parts, a flashing note, checksums) and a zip of the emulator site, and publishes the emulator to https://brushknight.github.io/newspaper/. See `.github/workflows/release.yml`.
-- Every push and pull request runs the host tests, the mock platform self test, the emulator build with its headless Chrome check, and the firmware build. See `.github/workflows/ci.yml`.
+- Publishing a GitHub release attaches the firmware (one merged flashable `.bin`, a zip with the separate parts, a flashing note, checksums), a zip of the emulator site, and the static Raspberry Pi binaries (`newspaper-display-<tag>-linux-armhf` and `-linux-arm64`, in `SHA256SUMS.txt`), and publishes the emulator to https://brushknight.github.io/newspaper/. See `.github/workflows/release.yml`.
+- The Raspberry Pi images (`newspaper-display-<tag>-rpizero2w.img.xz` and `-rpizerow.img.xz`, each with a `.sha256`) are built by `.github/workflows/image.yml`, which the release calls and which can also be run by hand. It is a separate job, so a failing image build does not hold back the other files.
+- Every push and pull request runs the host tests, the mock platform self test, the emulator build with its headless Chrome check, the firmware build, the Linux program with its no-hardware check, and the static Raspberry Pi binaries. The image is not built per push (it takes one to two hours). See `.github/workflows/ci.yml`.
 - One-time repo setup: set GitHub Pages to "GitHub Actions" as its source, and let the `github-pages` environment accept deployments from tags.
 
 ## License
 
 MIT, see [LICENSE](LICENSE).
 
+- The Raspberry Pi pin mapping and `config.txt` settings come from the same Pimoroni library (`inky/inky_el133uf1.py`, `examples/spectra6/buttons.py`, README); the image is built with [Buildroot](https://buildroot.org).
 - The panel driver is ported from [Pimoroni's Inky library](https://github.com/pimoroni/inky) (`inky/inky_el133uf1.py`, MIT) and cross-checked with [Waveshare's epd13in3E driver](https://github.com/waveshareteam/e-Paper).
 - QR codes come from the [QR Code generator library](https://www.nayuki.io/page/qr-code-generator-library) by Project Nayuki (MIT), in `third_party/qrcodegen`.
 - The fonts in `core/fonts/np_fonts.c` are bitmap renderings of UnifrakturCook and IBM Plex Serif and Mono, under the SIL Open Font License 1.1. That one generated file stays under the OFL; the licence texts are in `tools/fonts/`.

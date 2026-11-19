@@ -1,0 +1,10 @@
+config BR2_PACKAGE_NEWSPAPER
+	bool "newspaper"
+	depends on BR2_USE_MMU # fork
+	select BR2_PACKAGE_LIBCURL
+	help
+	  The Morning Newspaper display program (targets/linux of this
+	  repository) and newspaper-wifi, which turns newspaper-wifi.txt
+	  on the boot partition into a wpa_supplicant.conf.
+
+	  https://github.com/brushknight/newspaper

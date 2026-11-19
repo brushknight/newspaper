@@ -3,9 +3,10 @@
  *
  * The core (everything in core/) is portable C11. It includes no ESP-IDF and
  * no browser headers. Everything it needs from the outside world goes through
- * the function table below. There are three implementations in this repo:
+ * the function table below. There are four implementations in this repo:
  *
  *   targets/esp32/main/hal_*.c   real hardware
+ *   targets/linux/src/main.c     Raspberry Pi (and no-hardware mode on any Linux or macOS host)
  *   targets/wasm/hal_wasm.c      browser emulator
  *   tests/fake_hal.c             host unit tests
  *

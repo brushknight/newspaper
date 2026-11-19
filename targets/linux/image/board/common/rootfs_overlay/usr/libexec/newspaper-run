@@ -1,0 +1,5 @@
+#!/bin/sh
+# Started, and restarted whenever it exits, by init (/etc/inittab).
+# Runs the display program as the unprivileged user "newspaper".
+sleep 5 # if the program keeps failing, do not restart it in a tight loop
+exec /sbin/start-stop-daemon -S -c newspaper:newspaper -x /usr/bin/newspaper -- --config /etc/newspaper/newspaper.conf

@@ -31,6 +31,64 @@ jobs:
           node-version: 22
       - run: node --test tools/mock-server/test.js
 
+  linux:
+    name: Linux program (host build, no-hardware end to end)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install libcurl
+        run: sudo apt-get update && sudo apt-get install -y libcurl4-openssl-dev
+      - name: Build (with the SPI and GPIO code, and sanitizers)
+        run: |
+          cmake -S targets/linux -B build-linux -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_FLAGS="-fsanitize=address,undefined"
+          cmake --build build-linux --parallel
+      - name: End to end against the mock platform
+        run: node tools/e2e/linux-e2e.js --bin build-linux/newspaper --out linux-e2e
+      - name: Shell scripts
+        run: |
+          shellcheck -x targets/linux/install.sh targets/linux/uninstall.sh targets/linux/build-static.sh \
+            targets/linux/image/build.sh targets/linux/image/board/common/post-build.sh targets/linux/image/board/common/post-image.sh
+          shellcheck -s sh targets/linux/image/board/common/rootfs_overlay/etc/init.d/* \
+            targets/linux/image/board/common/rootfs_overlay/usr/libexec/newspaper-run
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: linux-e2e-frames
+          path: linux-e2e
+          if-no-files-found: ignore
+
+  linux-arm:
+    name: Linux program for Raspberry Pi (${{ matrix.arch }}, static)
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - arch: armhf
+            platform: linux/arm/v6 # ARMv6 hard float: also the original Pi Zero W
+          - arch: arm64
+            platform: linux/arm64
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - name: Build in Alpine
+        run: docker run --rm --platform ${{ matrix.platform }} -v "$PWD:/src" alpine:3.23 /src/targets/linux/build-static.sh /src/out/${{ matrix.arch }}
+      - name: Check the architecture
+        run: |
+          file out/${{ matrix.arch }}/newspaper
+          if [ "${{ matrix.arch }}" = armhf ]; then
+            file out/armhf/newspaper | grep -q 'ELF 32-bit LSB.*ARM, EABI5'
+            readelf -A out/armhf/newspaper | grep -q 'Tag_CPU_arch: v6'
+          else
+            file out/arm64/newspaper | grep -q 'ELF 64-bit LSB.*ARM aarch64'
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-${{ matrix.arch }}
+          path: out/${{ matrix.arch }}
+
   emulator:
     name: Browser emulator (WebAssembly)
     runs-on: ubuntu-latest

@@ -1,0 +1,25 @@
+#!/bin/sh
+# Time from the network (BusyBox ntpd). The Pi has no clock battery, and
+# HTTPS certificate checks need the right date. ntpd keeps retrying until
+# Wi-Fi is up; the display program waits for a plausible clock.
+
+PIDFILE=/run/ntpd.pid
+
+case "$1" in
+start)
+	printf "Starting ntpd: "
+	start-stop-daemon -S -b -m -p "$PIDFILE" -x /usr/sbin/ntpd -- -n -p pool.ntp.org && echo "OK" || echo "FAIL"
+	;;
+stop)
+	start-stop-daemon -K -p "$PIDFILE" 2>/dev/null
+	rm -f "$PIDFILE"
+	;;
+restart)
+	"$0" stop
+	"$0" start
+	;;
+*)
+	echo "Usage: $0 {start|stop|restart}"
+	exit 1
+	;;
+esac

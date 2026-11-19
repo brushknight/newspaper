@@ -1,0 +1,1 @@
+newspaper -1 newspaper -1 * - /bin/false - The Morning Newspaper display

@@ -2,8 +2,11 @@ name: Release
 
 # Runs when a GitHub release is published. Release tags are date based:
 # YYYY.MM.DD.N, for example 2026.11.11.1 (N counts releases on that day).
-# The job attaches the firmware and the emulator site to the release and
-# publishes the emulator to GitHub Pages.
+# The release job attaches the firmware, the emulator site and the static
+# Linux binaries for the Raspberry Pi to the release, with SHA256SUMS.txt,
+# and publishes the emulator to GitHub Pages. The image job (image.yml)
+# builds the flashable Raspberry Pi images and attaches them on its own, so
+# a slow or failing image build never holds back the firmware.
 
 on:
   release:
@@ -19,7 +22,51 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  linux:
+    name: Linux program for Raspberry Pi (${{ matrix.arch }}, static)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      matrix:
+        include:
+          - arch: armhf
+            platform: linux/arm/v6 # ARMv6 hard float: runs on every Pi, the original Zero W included
+          - arch: arm64
+            platform: linux/arm64
+    env:
+      TAG: ${{ github.event.release.tag_name }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - name: Build in Alpine
+        run: docker run --rm --platform ${{ matrix.platform }} -e NP_VERSION="$TAG" -v "$PWD:/src" alpine:3.23 /src/targets/linux/build-static.sh /src/out/${{ matrix.arch }}
+      - name: Check the architecture and the version
+        run: |
+          file out/${{ matrix.arch }}/newspaper
+          if [ "${{ matrix.arch }}" = armhf ]; then
+            readelf -A out/armhf/newspaper | grep -q 'Tag_CPU_arch: v6'
+          else
+            file out/arm64/newspaper | grep -q 'ARM aarch64'
+          fi
+          got="$(docker run --rm --platform ${{ matrix.platform }} -v "$PWD/out:/out" alpine:3.23 /out/${{ matrix.arch }}/newspaper --version)"
+          [ "$got" = "$TAG" ] || { echo "binary reports version '$got', expected '$TAG'" >&2; exit 1; }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-${{ matrix.arch }}
+          path: out/${{ matrix.arch }}
+
+  image:
+    name: Raspberry Pi images
+    permissions:
+      contents: write
+    uses: ./.github/workflows/image.yml
+    with:
+      tag: ${{ github.event.release.tag_name }}
+      board: all
+
   release:
+    needs: linux
     runs-on: ubuntu-latest
     environment:
       name: github-pages
@@ -59,6 +106,11 @@ jobs:
       - name: Build the emulator
         run: ./targets/wasm/build.sh
 
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: linux-*
+          path: linux-binaries
+
       - name: Collect release files
         run: |
           set -euo pipefail
@@ -75,6 +127,9 @@ jobs:
           cp docs/FLASHING.md "$out/FLASHING.md"
           zip -r "$out/$parts.zip" "$parts"
           (cd targets/wasm/dist && zip -r "../../../$out/newspaper-emulator-$TAG.zip" .)
+          for arch in armhf arm64; do
+            install -m 0755 "linux-binaries/linux-$arch/newspaper" "$out/newspaper-display-$TAG-linux-$arch"
+          done
           (cd "$out" && sha256sum * > SHA256SUMS.txt)
           ls -l "$out"
 

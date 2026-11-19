@@ -1,0 +1,17 @@
+# The Morning Newspaper display: Wi-Fi settings.
+#
+# Fill in the lines below, save the file, put the card back into the
+# Raspberry Pi and power it up. The display reads this file at every start.
+#
+#   ssid      the name of your Wi-Fi network, exactly as your phone shows it
+#   password  its password (leave it empty for an open network)
+#   country   the two letter code of the country you are in, for example
+#             DE, GB, US, ES. It sets which Wi-Fi channels may be used.
+#
+# Put a value in double quotes if it starts or ends with a space.
+# Only 2.4 GHz networks work (the Pi Zero has no 5 GHz radio), with WPA2
+# or WPA2/WPA3 mixed security, not WPA3 only.
+
+ssid=
+password=
+country=

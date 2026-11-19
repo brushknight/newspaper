@@ -1,0 +1,47 @@
+#!/bin/sh
+# Prepare what the display program needs: its data directory on the data
+# partition, its runtime directory, and access to SPI and GPIO.
+
+start() {
+	if ! grep -q ' /data ' /proc/mounts; then
+		# The data partition is missing or damaged: keep going in memory (pairing is lost at power off).
+		echo "newspaper: /data is not mounted, using memory instead"
+		mount -t tmpfs -o size=1m,mode=0755 tmpfs /data
+	fi
+	mkdir -p /data/newspaper /run/newspaper
+	chown newspaper:newspaper /data/newspaper /run/newspaper
+	chmod 0700 /data/newspaper /run/newspaper
+
+	# spidev appears once mdev has loaded the SPI modules.
+	n=0
+	while [ ! -e /dev/spidev0.0 ] && [ "$n" -lt 50 ]; do
+		sleep 0.2
+		n=$((n + 1))
+	done
+	for d in /dev/spidev0.0 /dev/spidev0.1 /dev/gpiochip*; do
+		[ -e "$d" ] || continue
+		chgrp newspaper "$d"
+		chmod 0660 "$d"
+	done
+	[ -e /dev/spidev0.0 ] || echo "newspaper: /dev/spidev0.0 is missing (dtparam=spi=on in config.txt?)"
+}
+
+stop() {
+	# Ask the program to stop and give a running panel refresh time to end: it must not be interrupted.
+	pid="$(pidof -s newspaper || true)"
+	[ -n "$pid" ] || return 0
+	echo "Stopping newspaper (waits for a running refresh)"
+	kill -TERM "$pid" 2>/dev/null
+	n=0
+	while kill -0 "$pid" 2>/dev/null && [ "$n" -lt 600 ]; do
+		sleep 0.1
+		n=$((n + 1))
+	done
+}
+
+case "$1" in
+start) start ;;
+stop) stop ;;
+restart) stop; start ;;
+*) echo "Usage: $0 {start|stop|restart}"; exit 1 ;;
+esac

@@ -21,6 +21,12 @@ typedef struct {
     const char *hardware_id; /* stable label, for example esp32-a1b2c3d4e5f6 */
     const char *firmware;    /* version string */
     bool emulator;           /* adds "emulator": true to the pairing request */
+    /*
+     * Optional: up to three lines that replace the advice on the "No Wi-Fi
+     * connection" screen, for targets where the system owns Wi-Fi (Linux).
+     * Leave all NULL for the ESP32 wording (hold Home while plugging in).
+     */
+    const char *wifi_help[3];
 } np_app_config_t;
 
 typedef enum {
