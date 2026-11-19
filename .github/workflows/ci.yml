@@ -67,7 +67,7 @@ jobs:
       matrix:
         include:
           - arch: armhf
-            platform: linux/arm/v6 # ARMv6 hard float: also the original Pi Zero W
+            platform: linux/arm/v6 # ARMv6 hard float: runs on any 32-bit Raspberry Pi OS
           - arch: arm64
             platform: linux/arm64
     steps:

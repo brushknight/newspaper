@@ -7,7 +7,7 @@
 #   docker run --rm --platform linux/arm64  -v "$PWD:/src" alpine:3.23 /src/targets/linux/build-static.sh /src/out/arm64
 #
 # linux/arm/v6 is Alpine's armhf (ARMv6, hard float), so the 32-bit binary
-# also runs on the original Raspberry Pi Zero W. On an x86 machine Docker
+# runs on any 32-bit Raspberry Pi OS. On an x86 machine Docker
 # needs QEMU for these platforms (docker/setup-qemu-action in CI).
 #
 # Environment: NP_VERSION overrides the version string (default: VERSION file).

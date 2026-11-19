@@ -15,7 +15,7 @@
 #   1. turns SPI on and adds dtoverlay=spi0-0cs to config.txt (Pimoroni's setup for the Inky)
 #   2. creates the unprivileged user "newspaper" with access to SPI and GPIO
 #   3. installs /usr/local/bin/newspaper: the release binary for this machine's
-#      architecture (armhf runs on every Pi including the Zero W, arm64 on
+#      architecture (armhf on 32-bit Raspberry Pi OS, arm64 on
 #      64-bit Raspberry Pi OS), or a build from source
 #   4. writes /etc/newspaper/newspaper.conf if it does not exist yet
 #   5. installs and enables newspaper.service (starts at boot, restarts on failure)

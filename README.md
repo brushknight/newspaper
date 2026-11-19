@@ -274,7 +274,7 @@ Tested:
 - **The Linux program in no-hardware mode, against the mock platform** (`tools/e2e/linux-e2e.js`): built and run natively on macOS and in an arm64 Debian container (with address and undefined behaviour sanitizers), and the static ARMv6 release binary under QEMU in an Alpine container. Pairing, adoption, page 1 and 2 byte for byte through the real driver and a simulated bus, the 180 second rest (one run with the real 180 s), the token file's mode 0600, a clean stop on SIGTERM, and no redraw after a restart.
 - **The portable Linux pieces, on the host** (`tests/test_linux.c`): config parsing, the token file, the PNG writer, the `/proc` network parsers, `newspaper-wifi.txt` parsing and the WPA key derivation (against the IEEE 802.11i test vector).
 - **The static Raspberry Pi binaries build** for armhf (checked to be ARMv6, `Tag_CPU_arch: v6KZ`) and arm64. The GPIO uAPI declarations the program carries for old kernel headers were compared with the kernel's own header on both architectures.
-- **The Buildroot external tree configures:** `make newspaper_rpizero2w_defconfig` and `newspaper_rpizerow_defconfig` with Buildroot 2026.02.3 keep every line of both defconfigs. Scripts pass shellcheck.
+- **The Buildroot external tree configures:** `make newspaper_rpizero2w_defconfig` with Buildroot 2026.02.3 keeps every line of the defconfig. Scripts pass shellcheck.
 
 Not tested:
 
@@ -291,7 +291,7 @@ Known gaps: no battery gauge (mains power is assumed), no over-the-air update, `
 
 - Release tags are date based: `YYYY.MM.DD.N`, for example `2026.11.11.1`, where N counts the releases of that day. The tag becomes the firmware version the display reports.
 - Publishing a GitHub release attaches the firmware (one merged flashable `.bin`, a zip with the separate parts, a flashing note, checksums), a zip of the emulator site, and the static Raspberry Pi binaries (`newspaper-display-<tag>-linux-armhf` and `-linux-arm64`, in `SHA256SUMS.txt`), and publishes the emulator to https://brushknight.github.io/newspaper/. See `.github/workflows/release.yml`.
-- The Raspberry Pi images (`newspaper-display-<tag>-rpizero2w.img.xz` and `-rpizerow.img.xz`, each with a `.sha256`) are built by `.github/workflows/image.yml`, which the release calls and which can also be run by hand. It is a separate job, so a failing image build does not hold back the other files.
+- The Raspberry Pi image (`newspaper-display-<tag>-rpizero2w.img.xz` with a `.sha256`) is built by `.github/workflows/image.yml`, which the release calls and which can also be run by hand. It is a separate job, so a failing image build does not hold back the other files.
 - Every push and pull request runs the host tests, the mock platform self test, the emulator build with its headless Chrome check, the firmware build, the Linux program with its no-hardware check, and the static Raspberry Pi binaries. The image is not built per push (it takes one to two hours). See `.github/workflows/ci.yml`.
 - One-time repo setup: set GitHub Pages to "GitHub Actions" as its source, and let the `github-pages` environment accept deployments from tags.
 

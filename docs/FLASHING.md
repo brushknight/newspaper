@@ -131,7 +131,7 @@ The installer can be run again at any time (for an update, for example). It:
 - writes `/etc/newspaper/newspaper.conf` if there is none (all settings are listed in `targets/linux/newspaper.conf`),
 - installs `newspaper.service`, which starts at boot, runs as `newspaper`, restarts on failure, and keeps the token in `/var/lib/newspaper` (mode 0700, file 0600).
 
-The release binaries are static: `linux-armhf` is built for ARMv6 and runs on every Pi with 32-bit Raspberry Pi OS (the Zero W included), `linux-arm64` on 64-bit Raspberry Pi OS.
+The release binaries are static: `linux-armhf` is built for ARMv6 and runs on 32-bit Raspberry Pi OS, `linux-arm64` on 64-bit Raspberry Pi OS.
 
 Useful commands:
 

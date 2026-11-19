@@ -2,7 +2,7 @@
 # Build the flashable Raspberry Pi image with Buildroot (pinned release below)
 # and this directory as BR2_EXTERNAL.
 #
-#   targets/linux/image/build.sh [rpizero2w|rpizerow] [OUTPUT_DIR]
+#   targets/linux/image/build.sh [rpizero2w] [OUTPUT_DIR]
 #
 # Needs a Linux machine with Buildroot's usual host tools (build-essential,
 # rsync, bc, cpio, unzip, file, wget, python3, perl) and about 15 GB of disk.
@@ -23,7 +23,7 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 root="$(cd "$here/../../.." && pwd)"
 out="$(mkdir -p "${2:-$root/../newspaper-image/$board}" && cd "${2:-$root/../newspaper-image/$board}" && pwd)"
 defconfig="newspaper_${board}_defconfig"
-[ -f "$here/configs/$defconfig" ] || { echo "unknown board $board (rpizero2w or rpizerow)" >&2; exit 2; }
+[ -f "$here/configs/$defconfig" ] || { echo "unknown board $board (only rpizero2w)" >&2; exit 2; }
 case "$out/" in
 "$root"/*) echo "put the output outside the repository ($out is inside it): Buildroot copies the repository as a package" >&2; exit 2 ;;
 esac

@@ -11,7 +11,7 @@ on:
       board:
         description: Board
         type: choice
-        options: [all, rpizero2w, rpizerow]
+        options: [rpizero2w]
         default: rpizero2w
   workflow_call:
     inputs:
@@ -21,7 +21,7 @@ on:
         required: true
       board:
         type: string
-        default: all
+        default: rpizero2w
 
 permissions:
   contents: write
@@ -34,7 +34,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        board: ${{ fromJSON(inputs.board == 'all' && '["rpizero2w","rpizerow"]' || format('["{0}"]', inputs.board)) }}
+        board: ["rpizero2w"]
     env:
       TAG: ${{ inputs.tag }}
       WORK: ${{ github.workspace }}/../br-work

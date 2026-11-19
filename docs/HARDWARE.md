@@ -62,7 +62,6 @@ The Pimoroni Inky Impression 13.3" is a Raspberry Pi HAT: it plugs straight onto
 | Board | Status |
 | --- | --- |
 | Raspberry Pi Zero 2 W | the main target: release binaries (armhf and arm64) and a flashable image |
-| Raspberry Pi Zero W (2017, ARMv6) | the armhf release binary is built for ARMv6 and runs on it; a second image config exists |
 | Other Raspberry Pi boards | should work with Raspberry Pi OS and the install script (the program finds the header's GPIO chip by its label, Pi 5 included); not tried |
 
 Untested on hardware, like everything here: the program has run only in no-hardware mode (see the README).
