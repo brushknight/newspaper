@@ -5,7 +5,7 @@ name: Release
 # The release job attaches the firmware, the emulator site and the static
 # Linux binaries for the Raspberry Pi to the release, with SHA256SUMS.txt,
 # and publishes the emulator to GitHub Pages. The image job (image.yml)
-# builds the flashable Raspberry Pi images and attaches them on its own, so
+# builds the flashable Raspberry Pi image and attaches it on its own, so
 # a slow or failing image build never holds back the firmware.
 
 on:
@@ -57,13 +57,13 @@ jobs:
           path: out/${{ matrix.arch }}
 
   image:
-    name: Raspberry Pi images
+    name: Raspberry Pi image
     permissions:
       contents: write
     uses: ./.github/workflows/image.yml
     with:
       tag: ${{ github.event.release.tag_name }}
-      board: all
+      board: rpizero2w
 
   release:
     needs: linux
